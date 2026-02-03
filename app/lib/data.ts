@@ -122,7 +122,6 @@ export async function fetchFilteredInvoices(
 }
 
 export async function fetchInvoicesPages(query: string) {
-  "use cache";
   try {
     const data = await sql`SELECT COUNT(*)
     FROM invoices
