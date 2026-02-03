@@ -4,7 +4,6 @@ import Link from 'next/link';
 import style from '@/app/ui/home.module.css';
 import { lusitana } from '@/app/ui/fonts';
 import Image from 'next/image';
-export const dynamic = 'force-dynamic';
 
 export default function Page() {
   return (
