@@ -1,78 +1,112 @@
 'use server';
+
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import postgres from 'postgres';
-import { ca } from 'zod/v4/locales';
+import { log } from 'console';
 
-const FormSchema = z.object({
-    id: z.string(),
-    customerId: z.string(),
-    amount: z.coerce.number(),
-    status: z.enum(['pending', 'paid']),
-    date: z.string(),
+const sql = postgres(process.env.POSTGRES_URL!);
+
+export type State = {
+  errors?: {
+    customerId?: string[];
+    amount?: string[];
+    status?: string[];
+  };
+  message?: string | null;
+};
+
+/* -------------------- SCHEMAS -------------------- */
+
+const CreateInvoiceSchema = z.object({
+  customerId: z.string({
+    invalid_type_error: 'Please select a customer.',
+  }),
+  amount: z.coerce
+    .number()
+    .gt(0, { message: 'Please enter an amount greater than $0.' }),
+  status: z.enum(['pending', 'paid'], {
+    invalid_type_error: 'Please select an invoice status.',
+  }),
 });
 
-const CreateInvoice = FormSchema.omit({ id: true, date: true });
-const UpdateInvoice = FormSchema.omit({ id: true, date: true });
+/* -------------------- CREATE -------------------- */
 
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
+export async function createInvoice(
+  prevState: State,
+  formData: FormData
+) {
+  const validatedFields = CreateInvoiceSchema.safeParse({
+    customerId: formData.get('customerId'),
+    amount: formData.get('amount'),
+    status: formData.get('status'),
+  });
 
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Please fix the errors below.',
+    };
+  }
 
-export async function createInvoice(formData: FormData) {
-    const { customerId, amount, status } = CreateInvoice.parse({
-        customerId: formData.get('customerId'), //  Get the customer ID from the form data
-        amount: formData.get('amount'),         //  Get the amount from the form data
-        status: formData.get('status'),         //  Get the status from the form data
-    });
+  const { customerId, amount, status } = validatedFields.data;
+  const amountInCents = Math.round(amount * 100);
+  const date = new Date().toISOString().split('T')[0];
 
-    const amountInCents = amount * 100;
-    const date = new Date().toISOString().split('T')[0];
+  await sql`
+    INSERT INTO invoices (customer_id, amount, status, date)
+    VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
+  `;
 
-    try {
-        await sql`
-        INSERT INTO invoices (customer_id, amount, status, date)
-        VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-         `
-    } catch (error) {
-        console.error('Error inserting invoice:', error);
-    }
-
-
-    revalidatePath('/dashboard/invoices');// Revalidate the invoices page to reflect the new invoice
-    redirect('/dashboard/invoices');
-
-
+  revalidatePath('/dashboard/invoices');
+  redirect('/dashboard/invoices');
 }
 
-// Use Zod to update the expected types
+/* -------------------- UPDATE -------------------- */
 
+const UpdateInvoiceSchema = CreateInvoiceSchema;
 
 export async function updateInvoice(id: string, formData: FormData) {
-    const { customerId, amount, status } = UpdateInvoice.parse({
-        customerId: formData.get('customerId'),
-        amount: formData.get('amount'),
-        status: formData.get('status'),
-    });
+  const validatedFields = UpdateInvoiceSchema.safeParse({
+    customerId: formData.get('customerId'),
+    amount: formData.get('amount'),
+    status: formData.get('status'),
+  });
 
-    const amountInCents = amount * 100;
+  console.log({ validatedFields });
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Please fix the errors below.',
+    };
+  }
 
-    try {
-        await sql`
-        UPDATE invoices
-        SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
-        WHERE id = ${id}
-    `;
-    } catch (error) {
-        console.error('Error updating invoice:', error);
-    }
+  const { customerId, amount, status } = validatedFields.data;
+  const amountInCents = Math.round(amount * 100);
 
-    revalidatePath('/dashboard/invoices');
-    redirect('/dashboard/invoices');
+  await sql`
+    UPDATE invoices
+    SET
+      customer_id = ${customerId},
+      amount = ${amountInCents},
+      status = ${status}
+    WHERE id = ${id}
+  `;
+
+  revalidatePath('/dashboard/invoices');
+  redirect('/dashboard/invoices');
 }
 
+/* -------------------- DELETE -------------------- */
+
 export async function deleteInvoice(id: string) {
-    //  throw new Error('Failed to Delete Invoice');
-    await sql`DELETE FROM invoices WHERE id = ${id}`;
-    revalidatePath('/dashboard/invoices');
+  if (!id) throw new Error('Missing invoice id');
+
+  await sql`
+    DELETE FROM invoices
+    WHERE id = ${id}
+  `;
+
+  revalidatePath('/dashboard/invoices');
 }

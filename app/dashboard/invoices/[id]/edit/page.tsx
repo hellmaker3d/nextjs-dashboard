@@ -1,21 +1,22 @@
-export const dynamic = 'force-dynamic';
-
 import Form from '@/app/ui/invoices/edit-form';
 import Breadcrumbs from '@/app/ui/invoices/breadcrumbs';
-import { fetchCustomers, fetchInvoiceById } from '@/app/lib/data';
-import { notFound } from 'next/navigation';
+import { fetchInvoiceById, fetchCustomers } from '@/app/lib/data';
 
-export default async function Page({ params }: { params: { id: string } }) {
-    const id = params.id;
+export const dynamic = 'force-dynamic';
 
-    const [invoice, customers] = await Promise.all([
-        fetchInvoiceById(id),
-        fetchCustomers(),
-    ]);
+export default async function Page({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
 
-    if (!invoice) {
-        notFound();
-    }
+    const { id } = await params;
+
+    // Traemos la factura y los clientes
+    const invoice = await fetchInvoiceById(id);
+    const customers = await fetchCustomers();
+
+
 
     return (
         <main>
@@ -29,6 +30,7 @@ export default async function Page({ params }: { params: { id: string } }) {
                     },
                 ]}
             />
+            {/* Solo renderizamos el formulario si invoice existe */}
             <Form invoice={invoice} customers={customers} />
         </main>
     );
