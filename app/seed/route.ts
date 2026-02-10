@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import postgres from 'postgres';
 import { invoices, customers, revenue, users } from '../lib/placeholder-data';
 
@@ -12,21 +12,19 @@ async function seedUsers() {
       name VARCHAR(255) NOT NULL,
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL
-    );
+    )
   `;
 
-  const insertedUsers = await Promise.all(
-    users.map(async (user) => {
-      const hashedPassword = await bcrypt.hash(user.password, 10);
-      return sql`
-        INSERT INTO users (id, name, email, password)
-        VALUES (${user.id}, ${user.name}, ${user.email}, ${hashedPassword})
-        ON CONFLICT (id) DO NOTHING;
-      `;
-    }),
-  );
+  const insertedUsers = users.map((user) => {
+    const hashedPassword = bcrypt.hashSync(user.password, 10); // ⚡ hash sincrónico
+    return sql`
+      INSERT INTO users (id, name, email, password)
+      VALUES (${user.id}, ${user.name}, ${user.email}, ${hashedPassword})
+      ON CONFLICT (id) DO NOTHING
+    `;
+  });
 
-  return insertedUsers;
+  return Promise.all(insertedUsers);
 }
 
 async function seedInvoices() {
@@ -39,20 +37,18 @@ async function seedInvoices() {
       amount INT NOT NULL,
       status VARCHAR(255) NOT NULL,
       date DATE NOT NULL
-    );
+    )
   `;
 
-  const insertedInvoices = await Promise.all(
+  return Promise.all(
     invoices.map(
       (invoice) => sql`
         INSERT INTO invoices (customer_id, amount, status, date)
         VALUES (${invoice.customer_id}, ${invoice.amount}, ${invoice.status}, ${invoice.date})
-        ON CONFLICT (id) DO NOTHING;
-      `,
-    ),
+        ON CONFLICT (id) DO NOTHING
+      `
+    )
   );
-
-  return insertedInvoices;
 }
 
 async function seedCustomers() {
@@ -64,20 +60,18 @@ async function seedCustomers() {
       name VARCHAR(255) NOT NULL,
       email VARCHAR(255) NOT NULL,
       image_url VARCHAR(255) NOT NULL
-    );
+    )
   `;
 
-  const insertedCustomers = await Promise.all(
+  return Promise.all(
     customers.map(
       (customer) => sql`
         INSERT INTO customers (id, name, email, image_url)
         VALUES (${customer.id}, ${customer.name}, ${customer.email}, ${customer.image_url})
-        ON CONFLICT (id) DO NOTHING;
-      `,
-    ),
+        ON CONFLICT (id) DO NOTHING
+      `
+    )
   );
-
-  return insertedCustomers;
 }
 
 async function seedRevenue() {
@@ -85,25 +79,23 @@ async function seedRevenue() {
     CREATE TABLE IF NOT EXISTS revenue (
       month VARCHAR(4) NOT NULL UNIQUE,
       revenue INT NOT NULL
-    );
+    )
   `;
 
-  const insertedRevenue = await Promise.all(
+  return Promise.all(
     revenue.map(
       (rev) => sql`
         INSERT INTO revenue (month, revenue)
         VALUES (${rev.month}, ${rev.revenue})
-        ON CONFLICT (month) DO NOTHING;
-      `,
-    ),
+        ON CONFLICT (month) DO NOTHING
+      `
+    )
   );
-
-  return insertedRevenue;
 }
 
 export async function GET() {
   try {
-    const result = await sql.begin((sql) => [
+    await sql.begin((sql) => [
       seedUsers(),
       seedCustomers(),
       seedInvoices(),
@@ -112,6 +104,6 @@ export async function GET() {
 
     return Response.json({ message: 'Database seeded successfully' });
   } catch (error) {
-    return Response.json({ error }, { status: 500 });
+    return Response.json({ error: (error as Error).message }, { status: 500 });
   }
 }
