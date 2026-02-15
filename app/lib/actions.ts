@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import postgres from 'postgres';
-import { log } from 'console';
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 
@@ -35,10 +34,7 @@ const CreateInvoiceSchema = z.object({
 
 /* -------------------- CREATE -------------------- */
 
-export async function createInvoice(
-  prevState: State,
-  formData: FormData
-) {
+export async function createInvoice(formData: FormData) {
   const validatedFields = CreateInvoiceSchema.safeParse({
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
@@ -46,10 +42,7 @@ export async function createInvoice(
   });
 
   if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Please fix the errors below.',
-    };
+    redirect('/dashboard/invoices?error=validation');
   }
 
   const { customerId, amount, status } = validatedFields.data;
@@ -76,12 +69,8 @@ export async function updateInvoice(id: string, formData: FormData) {
     status: formData.get('status'),
   });
 
-  console.log({ validatedFields });
   if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Please fix the errors below.',
-    };
+    redirect('/dashboard/invoices?error=validation');
   }
 
   const { customerId, amount, status } = validatedFields.data;
@@ -113,6 +102,8 @@ export async function deleteInvoice(id: string) {
   revalidatePath('/dashboard/invoices');
 }
 
+/* -------------------- AUTH -------------------- */
+
 export async function authenticate(
   prevState: string | undefined,
   formData: FormData,
@@ -131,3 +122,4 @@ export async function authenticate(
     throw error;
   }
 }
+
