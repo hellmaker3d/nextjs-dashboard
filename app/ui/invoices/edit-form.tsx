@@ -19,32 +19,38 @@ export default function EditInvoiceForm({
   invoice: InvoiceForm | null;
   customers: CustomerField[];
 }) {
-  const [customerId, setCustomerId] = useState('');
-  const [amount, setAmount] = useState('');
-  const [status, setStatus] = useState<'pending' | 'paid'>('pending');
+  // 🔥 Si no existe la factura, no renderizamos el form
+  if (!invoice) {
+    return (
+      <div className="rounded-md bg-gray-50 p-4 md:p-6">
+        <p className="mb-4 text-yellow-600">
+          ⚠️ Factura no encontrada.
+        </p>
+        <Link
+          href="/dashboard/invoices"
+          className="flex h-10 items-center rounded-lg bg-gray-100 px-4 text-sm"
+        >
+          Volver
+        </Link>
+      </div>
+    );
+  }
 
-  // 🔥 SIN ESTO, NO SE PRECARGA
+  const [customerId, setCustomerId] = useState(invoice.customer_id);
+  const [amount, setAmount] = useState(String(invoice.amount));
+  const [status, setStatus] = useState<'pending' | 'paid'>(invoice.status);
+
   useEffect(() => {
-    if (invoice) {
-      setCustomerId(invoice.customer_id);
-      setAmount(String(invoice.amount));
-      setStatus(invoice.status);
-    }
+    setCustomerId(invoice.customer_id);
+    setAmount(String(invoice.amount));
+    setStatus(invoice.status);
   }, [invoice]);
 
-  const updateInvoiceWithId = invoice
-    ? updateInvoice.bind(null, invoice.id)
-    : undefined;
+  const updateInvoiceWithId = updateInvoice.bind(null, invoice.id);
 
   return (
     <form action={updateInvoiceWithId}>
       <div className="rounded-md bg-gray-50 p-4 md:p-6">
-        {!invoice && (
-          <p className="mb-4 text-yellow-600">
-            ⚠️ Factura no encontrada. Modo solo lectura.
-          </p>
-        )}
-
         {/* Customer */}
         <div className="mb-4">
           <label htmlFor="customer" className="mb-2 block text-sm font-medium">
@@ -56,7 +62,6 @@ export default function EditInvoiceForm({
               name="customerId"
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
-              disabled={!invoice}
               className="peer block w-full cursor-pointer rounded-md border border-gray-200 py-2 pl-10 text-sm"
             >
               <option value="" disabled>
@@ -85,7 +90,6 @@ export default function EditInvoiceForm({
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              disabled={!invoice}
               className="peer block w-full rounded-md border border-gray-200 py-2 pl-10 text-sm"
             />
             <CurrencyDollarIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500" />
@@ -93,7 +97,7 @@ export default function EditInvoiceForm({
         </div>
 
         {/* Status */}
-        <fieldset disabled={!invoice}>
+        <fieldset>
           <legend className="mb-2 block text-sm font-medium">
             Set the invoice status
           </legend>
@@ -138,7 +142,7 @@ export default function EditInvoiceForm({
         >
           Cancel
         </Link>
-        <Button type="submit" disabled={!invoice}>
+        <Button type="submit">
           Edit Invoice
         </Button>
       </div>
