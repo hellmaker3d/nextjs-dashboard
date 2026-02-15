@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { CustomerField, InvoiceForm } from '@/app/lib/definitions';
 import {
   CheckIcon,
@@ -19,7 +18,6 @@ export default function EditInvoiceForm({
   invoice: InvoiceForm | null;
   customers: CustomerField[];
 }) {
-  // 🔥 Si no existe la factura, no renderizamos el form
   if (!invoice) {
     return (
       <div className="rounded-md bg-gray-50 p-4 md:p-6">
@@ -36,16 +34,6 @@ export default function EditInvoiceForm({
     );
   }
 
-  const [customerId, setCustomerId] = useState(invoice.customer_id);
-  const [amount, setAmount] = useState(String(invoice.amount));
-  const [status, setStatus] = useState<'pending' | 'paid'>(invoice.status);
-
-  useEffect(() => {
-    setCustomerId(invoice.customer_id);
-    setAmount(String(invoice.amount));
-    setStatus(invoice.status);
-  }, [invoice]);
-
   const updateInvoiceWithId = updateInvoice.bind(null, invoice.id);
 
   return (
@@ -60,8 +48,7 @@ export default function EditInvoiceForm({
             <select
               id="customer"
               name="customerId"
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
+              defaultValue={invoice.customer_id}
               className="peer block w-full cursor-pointer rounded-md border border-gray-200 py-2 pl-10 text-sm"
             >
               <option value="" disabled>
@@ -88,8 +75,7 @@ export default function EditInvoiceForm({
               name="amount"
               type="number"
               step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              defaultValue={invoice.amount / 100}
               className="peer block w-full rounded-md border border-gray-200 py-2 pl-10 text-sm"
             />
             <CurrencyDollarIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500" />
@@ -109,8 +95,7 @@ export default function EditInvoiceForm({
                   name="status"
                   type="radio"
                   value="pending"
-                  checked={status === 'pending'}
-                  onChange={() => setStatus('pending')}
+                  defaultChecked={invoice.status === 'pending'}
                 />
                 <label htmlFor="pending" className="ml-2 text-xs">
                   Pending <ClockIcon className="inline h-4 w-4" />
@@ -123,8 +108,7 @@ export default function EditInvoiceForm({
                   name="status"
                   type="radio"
                   value="paid"
-                  checked={status === 'paid'}
-                  onChange={() => setStatus('paid')}
+                  defaultChecked={invoice.status === 'paid'}
                 />
                 <label htmlFor="paid" className="ml-2 text-xs">
                   Paid <CheckIcon className="inline h-4 w-4" />
