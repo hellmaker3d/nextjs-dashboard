@@ -7,7 +7,13 @@ import postgres from 'postgres';
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 
-const sql = postgres(process.env.POSTGRES_URL!);
+const sql = postgres(process.env.POSTGRES_URL!, {
+  ssl: 'require',
+});
+
+/* =======================================================
+   TYPES
+======================================================= */
 
 export type State = {
   errors?: {
@@ -18,11 +24,13 @@ export type State = {
   message?: string | null;
 };
 
-/* -------------------- SCHEMAS -------------------- */
+/* =======================================================
+   SCHEMAS
+======================================================= */
 
-const CreateInvoiceSchema = z.object({
-  customerId: z.string({
-    invalid_type_error: 'Please select a customer.',
+const InvoiceSchema = z.object({
+  customerId: z.string().min(1, {
+    message: 'Please select a customer.',
   }),
   amount: z.coerce
     .number()
@@ -32,10 +40,12 @@ const CreateInvoiceSchema = z.object({
   }),
 });
 
-/* -------------------- CREATE -------------------- */
+/* =======================================================
+   CREATE
+======================================================= */
 
 export async function createInvoice(formData: FormData) {
-  const validatedFields = CreateInvoiceSchema.safeParse({
+  const validatedFields = InvoiceSchema.safeParse({
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
@@ -46,24 +56,34 @@ export async function createInvoice(formData: FormData) {
   }
 
   const { customerId, amount, status } = validatedFields.data;
+
   const amountInCents = Math.round(amount * 100);
   const date = new Date().toISOString().split('T')[0];
 
-  await sql`
-    INSERT INTO invoices (customer_id, amount, status, date)
-    VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
-  `;
+  try {
+    await sql`
+      INSERT INTO invoices (customer_id, amount, status, date)
+      VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
+    `;
+  } catch (error) {
+    console.error('Database error:', error);
+    redirect('/dashboard/invoices?error=database');
+  }
 
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
-/* -------------------- UPDATE -------------------- */
-
-const UpdateInvoiceSchema = CreateInvoiceSchema;
+/* =======================================================
+   UPDATE
+======================================================= */
 
 export async function updateInvoice(id: string, formData: FormData) {
-  const validatedFields = UpdateInvoiceSchema.safeParse({
+  if (!id) {
+    redirect('/dashboard/invoices?error=missing-id');
+  }
+
+  const validatedFields = InvoiceSchema.safeParse({
     customerId: formData.get('customerId'),
     amount: formData.get('amount'),
     status: formData.get('status'),
@@ -74,42 +94,60 @@ export async function updateInvoice(id: string, formData: FormData) {
   }
 
   const { customerId, amount, status } = validatedFields.data;
+
   const amountInCents = Math.round(amount * 100);
 
-  await sql`
-    UPDATE invoices
-    SET
-      customer_id = ${customerId},
-      amount = ${amountInCents},
-      status = ${status}
-    WHERE id = ${id}
-  `;
+  try {
+    await sql`
+      UPDATE invoices
+      SET
+        customer_id = ${customerId},
+        amount = ${amountInCents},
+        status = ${status}
+      WHERE id = ${id}
+    `;
+  } catch (error) {
+    console.error('Database error:', error);
+    redirect('/dashboard/invoices?error=database');
+  }
 
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
-/* -------------------- DELETE -------------------- */
+/* =======================================================
+   DELETE
+======================================================= */
 
 export async function deleteInvoice(id: string) {
-  if (!id) throw new Error('Missing invoice id');
+  if (!id) {
+    redirect('/dashboard/invoices?error=missing-id');
+  }
 
-  await sql`
-    DELETE FROM invoices
-    WHERE id = ${id}
-  `;
+  try {
+    await sql`
+      DELETE FROM invoices
+      WHERE id = ${id}
+    `;
+  } catch (error) {
+    console.error('Database error:', error);
+    redirect('/dashboard/invoices?error=database');
+  }
 
   revalidatePath('/dashboard/invoices');
 }
 
-/* -------------------- AUTH -------------------- */
+/* =======================================================
+   AUTH (compatible con useActionState)
+======================================================= */
 
 export async function authenticate(
   prevState: string | undefined,
   formData: FormData,
-) {
+): Promise<string | undefined> {
   try {
     await signIn('credentials', formData);
+    return undefined;
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {
@@ -119,7 +157,8 @@ export async function authenticate(
           return 'Something went wrong.';
       }
     }
-    throw error;
+
+    console.error(error);
+    return 'Authentication failed.';
   }
 }
-
