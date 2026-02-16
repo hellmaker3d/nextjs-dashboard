@@ -145,8 +145,23 @@ export async function authenticate(
   prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
+  const email = formData.get('email')?.toString().trim();
+  const password = formData.get('password')?.toString();
+
+  if (!email || !password) return 'Email and password required.';
+
   try {
-    await signIn('credentials', formData);
+    // Ajuste clave: signIn espera un objeto, no FormData
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false, // evita redirect automático
+    });
+
+    if (!result || result.error) {
+      return 'Invalid credentials.';
+    }
+
     return undefined;
   } catch (error) {
     if (error instanceof AuthError) {
