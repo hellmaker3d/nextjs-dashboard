@@ -3,7 +3,7 @@ import { authConfig } from './auth.config';
 import Credentials from 'next-auth/providers/credentials';
 import { z } from 'zod';
 import type { User } from '@/app/lib/definitions';
-import * as bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import postgres from 'postgres';
 
 const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
@@ -11,7 +11,9 @@ const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
 // Función para obtener usuario de la DB
 async function getUser(email: string): Promise<User | undefined> {
     try {
-        const users = await sql<User[]>`SELECT * FROM users WHERE email = ${email.toLowerCase().trim()}`;
+        const users = await sql<User[]>`
+      SELECT * FROM users WHERE email = ${email.toLowerCase().trim()}
+    `;
         return users[0];
     } catch (error) {
         console.error('Failed to fetch user:', error);
@@ -19,7 +21,12 @@ async function getUser(email: string): Promise<User | undefined> {
     }
 }
 
-export const { auth, signIn, signOut } = NextAuth({
+export const {
+    auth,
+    signIn,
+    signOut,
+    handlers: { GET, POST },
+} = NextAuth({
     ...authConfig,
     pages: {
         signIn: '/login',
@@ -34,9 +41,11 @@ export const { auth, signIn, signOut } = NextAuth({
             async authorize(credentials) {
                 if (!credentials) return null;
 
-                // Validación con Zod
                 const parsed = z
-                    .object({ email: z.string().email(), password: z.string().min(6) })
+                    .object({
+                        email: z.string().email(),
+                        password: z.string().min(6),
+                    })
                     .safeParse(credentials);
 
                 if (!parsed.success) return null;
@@ -44,19 +53,19 @@ export const { auth, signIn, signOut } = NextAuth({
                 const { email, password } = parsed.data;
 
                 const user = await getUser(email);
-                if (!user) {
-                    console.log('User not found:', email);
-                    return null;
-                }
+                if (!user) return null;
 
-                const passwordsMatch = await bcrypt.compare(password, user.password);
-                if (!passwordsMatch) {
-                    console.log('Incorrect password for:', email);
-                    return null;
-                }
+                const passwordsMatch = await bcrypt.compare(
+                    password,
+                    user.password
+                );
 
-                // Retornamos solo los datos necesarios para la sesión
-                return { id: user.id, email: user.email };
+                if (!passwordsMatch) return null;
+
+                return {
+                    id: user.id,
+                    email: user.email,
+                };
             },
         }),
     ],
@@ -69,7 +78,9 @@ export const { auth, signIn, signOut } = NextAuth({
             return token;
         },
         async session({ session, token }) {
-            if (token) session.user.id = token.id as string;
+            if (token) {
+                session.user.id = token.id as string;
+            }
             return session;
         },
     },
