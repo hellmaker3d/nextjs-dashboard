@@ -25,16 +25,21 @@ export default function LoginForm() {
     setIsPending(true);
     setErrorMessage(undefined);
 
-    const formData = new FormData(e.currentTarget);
-    const error = await authenticate(undefined, formData);
+    try {
+      const formData = new FormData(e.currentTarget);
+      const error = await authenticate(undefined, formData);
 
-    if (error) {
-      setErrorMessage(error);
-    } else {
-      router.push(callbackUrl); // Redirige al dashboard
+      if (error) {
+        setErrorMessage(error); // muestra el error en pantalla
+      } else {
+        router.push(callbackUrl); // redirige al dashboard
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setErrorMessage('Something went wrong. Please try again.');
+    } finally {
+      setIsPending(false);
     }
-
-    setIsPending(false);
   };
 
   return (
@@ -43,6 +48,7 @@ export default function LoginForm() {
         <h1 className={`${lusitana.className} mb-3 text-2xl`}>
           Please log in to continue.
         </h1>
+
         <div className="w-full">
           <div>
             <label
@@ -63,6 +69,7 @@ export default function LoginForm() {
               <AtSymbolIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
             </div>
           </div>
+
           <div className="mt-4">
             <label
               className="mb-3 mt-5 block text-xs font-medium text-gray-900"
@@ -87,8 +94,13 @@ export default function LoginForm() {
 
         <input type="hidden" name="redirectTo" value={callbackUrl} />
 
-        <Button className="mt-4 w-full" aria-disabled={isPending} type="submit">
-          Log in <ArrowRightIcon className="ml-auto h-5 w-5 text-gray-50" />
+        <Button
+          className="mt-4 w-full"
+          aria-disabled={isPending}
+          type="submit"
+        >
+          {isPending ? 'Logging in...' : 'Log in'}
+          <ArrowRightIcon className="ml-auto h-5 w-5 text-gray-50" />
         </Button>
 
         <div className="flex h-8 items-end space-x-1">
