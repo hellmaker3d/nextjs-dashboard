@@ -15,7 +15,6 @@ import { useState } from 'react';
 export default function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [isPending, setIsPending] = useState(false);
@@ -30,9 +29,15 @@ export default function LoginForm() {
       const error = await authenticate(undefined, formData);
 
       if (error) {
-        setErrorMessage(error); // muestra el error en pantalla
+        setErrorMessage(error);
       } else {
-        router.push(callbackUrl); // redirige al dashboard
+        // Calculamos un callback URL absoluto seguro
+        const rawCallback = searchParams.get('callbackUrl');
+        const callbackUrl = rawCallback
+          ? new URL(rawCallback, window.location.origin).toString()
+          : `${window.location.origin}/dashboard`;
+
+        router.push(callbackUrl); // Redirige correctamente
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -92,13 +97,9 @@ export default function LoginForm() {
           </div>
         </div>
 
-        <input type="hidden" name="redirectTo" value={callbackUrl} />
+        <input type="hidden" name="redirectTo" value={window.location.origin + '/dashboard'} />
 
-        <Button
-          className="mt-4 w-full"
-          aria-disabled={isPending}
-          type="submit"
-        >
+        <Button className="mt-4 w-full" aria-disabled={isPending} type="submit">
           {isPending ? 'Logging in...' : 'Log in'}
           <ArrowRightIcon className="ml-auto h-5 w-5 text-gray-50" />
         </Button>
