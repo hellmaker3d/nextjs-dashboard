@@ -15,6 +15,7 @@ import { useState } from 'react';
 export default function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [isPending, setIsPending] = useState(false);
@@ -24,27 +25,16 @@ export default function LoginForm() {
     setIsPending(true);
     setErrorMessage(undefined);
 
-    try {
-      const formData = new FormData(e.currentTarget);
-      const error = await authenticate(undefined, formData);
+    const formData = new FormData(e.currentTarget);
+    const error = await authenticate(undefined, formData);
 
-      if (error) {
-        setErrorMessage(error);
-      } else {
-        // Calculamos un callback URL absoluto seguro
-        const rawCallback = searchParams.get('callbackUrl');
-        const callbackUrl = rawCallback
-          ? new URL(rawCallback, window.location.origin).toString()
-          : `${window.location.origin}/dashboard`;
-
-        router.push(callbackUrl); // Redirige correctamente
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setErrorMessage('Something went wrong. Please try again.');
-    } finally {
-      setIsPending(false);
+    if (error) {
+      setErrorMessage(error);
+    } else {
+      router.push(callbackUrl); // Redirige al dashboard
     }
+
+    setIsPending(false);
   };
 
   return (
@@ -53,7 +43,6 @@ export default function LoginForm() {
         <h1 className={`${lusitana.className} mb-3 text-2xl`}>
           Please log in to continue.
         </h1>
-
         <div className="w-full">
           <div>
             <label
@@ -74,7 +63,6 @@ export default function LoginForm() {
               <AtSymbolIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-500 peer-focus:text-gray-900" />
             </div>
           </div>
-
           <div className="mt-4">
             <label
               className="mb-3 mt-5 block text-xs font-medium text-gray-900"
@@ -97,11 +85,10 @@ export default function LoginForm() {
           </div>
         </div>
 
-        <input type="hidden" name="redirectTo" value={window.location.origin + '/dashboard'} />
+        <input type="hidden" name="redirectTo" value={callbackUrl} />
 
         <Button className="mt-4 w-full" aria-disabled={isPending} type="submit">
-          {isPending ? 'Logging in...' : 'Log in'}
-          <ArrowRightIcon className="ml-auto h-5 w-5 text-gray-50" />
+          Log in <ArrowRightIcon className="ml-auto h-5 w-5 text-gray-50" />
         </Button>
 
         <div className="flex h-8 items-end space-x-1">
